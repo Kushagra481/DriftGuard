@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { useExperimentCtx } from '@/lib/experiment-context';
 import { METHOD_IDS, METHOD_META } from '@/lib/format';
 import { Panel, Swatch } from '@/components/instrument';
+import { CITATION } from '@/lib/mixo';
 
 function Eq({ children, n }: { children: ReactNode; n: string }) {
   return (
@@ -115,6 +116,46 @@ export default function MethodologyPage() {
             The <span className="text-foreground">virtual anchor</span> on the Live view is an evaluation-only quantity: a fixed true landmark is
             re-placed through the DriftGuard pose error (translation and orientation) to show how far a world-locked overlay would slip. Ground truth
             is never an estimator input.
+          </p>
+
+          <H>MIXO-inspired multi-camera expert fusion</H>
+          <p className="border-l-2 border-[#e8b86a]/70 pl-3 text-[12.5px]" data-testid="text-mixo-citation">
+            {CITATION}
+          </p>
+          <p className="mt-3">
+            This is an <span className="text-foreground">inspired adaptation, not a reproduction</span>. The paper fuses four cameras and an IMU with a
+            supervised, yaw-focused gating network over learned visual-odometry experts on real data. Here each of four simulated cameras (front, left,
+            right, rear) is an expert that solves synthetic known-landmark PnP; the gate fuses full 6-DoF relative increments rather than yaw alone. No
+            number from the paper is quoted or implied, and no improvement over the paper or over the single-camera methods is claimed.
+          </p>
+          <Eq n="10">ξ_k = log( T_(k−1)⁻¹ T_k ) ∈ ℝ⁶ = (tx, ty, tz, rx, ry, rz),  in last body frame, m / rad</Eq>
+          <Eq n="11">w = softmax_masked( MLP(φ) ),   MLP: [d, 16, 16, 5], tanh, dropout 10% (training only)</Eq>
+          <Eq n="12">t̂ = Σ_j w_j t_j,   R̂ = argmin_R Σ_j w_j ‖ log(R_jᵀ R) ‖²  (iterated SO(3) Karcher mean)</Eq>
+          <p>
+            The gate is a small NumPy multilayer perceptron whose input φ contains per-expert health features (feature count, inlier ratio,
+            reprojection error, quality) and never ground truth. Experts that are unavailable are masked before the softmax, so their weight is exactly
+            zero. Rotations are averaged on SO(3) with a weighted Karcher mean, not by adding or normalising quaternions. The first frame has no relative
+            camera increment; the pose is initialised from a common first PnP solve.
+          </p>
+          <p className="mt-2">
+            Training minimises motion MSE on the six-dimensional tangent increments, offline, via a documented command-line script. Train, validation
+            and test sequences come from seeded namespaces disjoint from the seeds used by interactive runs. Ground truth is used only as offline
+            training labels and for evaluation. The interface cannot train the gate; the MIXO Experts view shows the artifact status, and reports{' '}
+            <span className="font-mono text-[12px]">untrained</span> with no results until the artifact exists.
+          </p>
+          <p className="mt-2">
+            <span className="text-foreground">Safe failure.</span> When no camera supplies a valid increment, the estimator falls back to inertial
+            holdover and its reported uncertainty grows; it does not declare recovery from a confident gate alone. Disagreement between expert
+            increments and gate entropy are tracked as sensor-health signals. A trained gate carries no guarantee outside the simulated distribution.
+          </p>
+          <p className="mt-2">
+            <span className="text-foreground">Comparisons.</span> MIXO uses four cameras + IMU while the five original methods use one camera + IMU, so
+            the main benchmark is hardware-confounded. The fair comparison is the same-rig table (learned gate vs equal weighting vs matched-count
+            weighting) computed on one frozen measurement fingerprint. The original single-camera estimators are unchanged by this addition.
+          </p>
+          <p className="mt-2">
+            Per-camera degradation windows are a simplification: staggered mode uses front [0.30, 0.70], left [0.45, 0.85], right [0.15, 0.55], rear
+            [0.35, 0.75] of the duration; common mode uses [0.30, 0.70] for all cameras.
           </p>
 
           <H>Honest limitations</H>

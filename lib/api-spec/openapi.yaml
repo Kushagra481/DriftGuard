@@ -6,6 +6,15 @@ info:
 servers:
   - url: /api
 paths:
+  /mixo/model:
+    get:
+      operationId: getMixoModel
+      responses:
+        "200":
+          description: Actual trained synthetic gate provenance and held-out losses
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MixoModel" }
   /healthz:
     get:
       operationId: healthCheck
@@ -167,6 +176,12 @@ components:
         seed: { type: integer, default: 42 }
         duration: { type: number, minimum: 3, maximum: 30, default: 8 }
         motion: { type: string, enum: [loop, pure_rotation, low_parallax], default: loop }
+        rigDegradation: { type: string, enum: [staggered, common], default: staggered }
+        cameraParameters:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: { type: number }
         parameters:
           type: object
           additionalProperties: { type: number }
@@ -265,6 +280,9 @@ components:
       type: object
       required: [frame, features, weakestDirection, observableRank, coverage, parallax, blur]
       properties:
+        expertViews:
+          type: array
+          items: { $ref: "#/components/schemas/ExpertView" }
         frame: { $ref: "#/components/schemas/Frame" }
         features: { type: array, items: { $ref: "#/components/schemas/Feature" } }
         weakestDirection: { type: array, items: { type: number } }
@@ -276,6 +294,7 @@ components:
       type: object
       required: [id, createdAt, config, frames, metrics, landmarks, camera, metadata]
       properties:
+        mixo: { $ref: "#/components/schemas/MixoExperiment" }
         id: { type: string }
         createdAt: { type: string }
         config: { $ref: "#/components/schemas/ExperimentInput" }
@@ -295,3 +314,82 @@ components:
         metadata:
           type: object
           additionalProperties: {}
+    MixoModel:
+      type: object
+      additionalProperties: {}
+    ExpertDescriptor:
+      type: object
+      required: [id, name, quaternion, translation]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        quaternion: { type: array, items: { type: number } }
+        translation: { type: array, items: { type: number } }
+    ExpertDiagnostic:
+      type: object
+      required: [id, name, available, featureCount, inlierRatio, reprojectionError, quality, increment, weight, reason, latency]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        available: { type: boolean }
+        featureCount: { type: integer }
+        inlierRatio: { type: number }
+        reprojectionError: { type: number }
+        quality: { type: number }
+        increment: { type: array, items: { type: number } }
+        weight: { type: number }
+        reason: { type: string }
+        latency: { type: number }
+    MixoFrame:
+      type: object
+      required: [index, time, weights, experts, entropy, state, cause, positionUncertainty, orientationUncertainty, disagreement, activeExperts, latency, fusedIncrement, pose]
+      properties:
+        index: { type: integer }
+        time: { type: number }
+        weights:
+          type: object
+          additionalProperties: { type: number }
+        experts: { type: array, items: { $ref: "#/components/schemas/ExpertDiagnostic" } }
+        entropy: { type: number }
+        state: { type: string }
+        cause: { type: string }
+        positionUncertainty: { type: number }
+        orientationUncertainty: { type: number }
+        disagreement: { type: number }
+        activeExperts: { type: integer }
+        latency: { type: number }
+        fusedIncrement: { type: array, items: { type: number } }
+        pose: { $ref: "#/components/schemas/Pose" }
+    ObservationPoint:
+      type: object
+      required: [id, u, v, residual, outlier]
+      properties:
+        id: { type: integer }
+        u: { type: number }
+        v: { type: number }
+        residual: { type: number }
+        outlier: { type: boolean }
+    ExpertView:
+      type: object
+      required: [id, name, width, height, featureCount, sampled, features]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        width: { type: integer }
+        height: { type: integer }
+        featureCount: { type: integer }
+        sampled: { type: boolean }
+        features: { type: array, items: { $ref: "#/components/schemas/ObservationPoint" } }
+    MixoExperiment:
+      type: object
+      required: [experts, frames, training, baselines, measurementFingerprint, cameraWindows, limitations]
+      properties:
+        experts: { type: array, items: { $ref: "#/components/schemas/ExpertDescriptor" } }
+        frames: { type: array, items: { $ref: "#/components/schemas/MixoFrame" } }
+        training: { $ref: "#/components/schemas/MixoModel" }
+        baselines: { type: array, items: { $ref: "#/components/schemas/MethodMetrics" } }
+        measurementFingerprint: { type: string }
+        cameraWindows:
+          type: object
+          additionalProperties: { type: array, items: { type: number } }
+        limitations: { type: array, items: { type: string } }

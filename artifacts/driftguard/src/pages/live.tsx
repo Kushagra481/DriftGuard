@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'wouter';
-import { SlidersHorizontal } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Boxes, SlidersHorizontal } from 'lucide-react';
 import { useGetFrame, getGetFrameQueryKey, type Experiment } from '@workspace/api-client-react';
 import { ExperimentGate, Panel, Readout, Swatch } from '@/components/instrument';
 import { PlaybackBar } from '@/components/playback';
 import { Trajectory3D, computeAnchor } from '@/components/trajectory-3d';
 import { CameraView, CameraLegend, type ColorMode } from '@/components/camera-view';
 import { useExperimentCtx } from '@/lib/experiment-context';
-import { METHOD_IDS, METHOD_META, TRUTH_COLOR, fmt, pct, methodColor } from '@/lib/format';
+import { METHOD_IDS, METHOD_META, TRUTH_COLOR, fmt, pct, methodColor, hasMixo } from '@/lib/format';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const RES_SCALE = 4;
@@ -46,6 +46,29 @@ function LiveInner({ experiment }: { experiment: Experiment }) {
         </Link>
       </div>
 
+      {hasMixo(experiment) ? (
+        <Link href="/experts" className="group flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 border-b border-[#e8b86a]/30 bg-[#e8b86a]/[0.06] hover:bg-[#e8b86a]/10 transition-colors" data-testid="link-experts-banner">
+          <Boxes className="w-3.5 h-3.5 text-[#e8b86a]" />
+          <span className="font-cond font-semibold text-[12px] uppercase tracking-[0.14em] text-[#e8b86a]">MIXO-inspired experts available</span>
+          <span className="font-mono text-[11px] text-muted-foreground">
+            {experiment.mixo!.experts.length} camera experts + IMU · {experiment.mixo!.frames.length} gated frames · fingerprint {experiment.mixo!.measurementFingerprint.slice(0, 12)}
+          </span>
+          <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-[11px] text-[#e8b86a]">
+            inspect per-frame weights <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+          </span>
+        </Link>
+      ) : (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 border-b border-border bg-secondary/40" data-testid="status-no-mixo">
+          <AlertTriangle className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="font-mono text-[11px] text-muted-foreground">
+            This run predates the MIXO-inspired estimator or did not report it. No expert weights exist for it; nothing is inferred.
+          </span>
+          <Link href="/sensors" className="ml-auto inline-flex items-center gap-1.5 font-mono text-[11px] text-primary hover:underline" data-testid="link-rerun-mixo">
+            re-run in Sensor Laboratory <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
+      )}
+
       <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] xl:grid-rows-[minmax(0,1fr)] gap-px bg-border md:overflow-y-auto xl:overflow-hidden">
         <Panel
           title="Trajectory · world frame"
@@ -78,7 +101,7 @@ function LiveInner({ experiment }: { experiment: Experiment }) {
             <div className="flex items-center gap-2 font-mono text-[10px]">
               <Swatch color={TRUTH_COLOR} dashed /> <span>ground truth</span>
             </div>
-            {METHOD_IDS.map((m) => (
+            {METHOD_IDS.filter((m) => m !== 'mixo' || hasMixo(experiment) || experiment.frames.some((x) => x.poses.mixo)).map((m) => (
               <label key={m} className="flex items-center gap-2 font-mono text-[10px] cursor-pointer select-none" data-testid={`toggle-method-${m}`}>
                 <input type="checkbox" className="accent-[#55d3e0] w-3 h-3" checked={visible[m]} onChange={() => setVisible({ ...visible, [m]: !visible[m] })} />
                 <Swatch color={METHOD_META[m].color} />

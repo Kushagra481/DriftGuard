@@ -8,6 +8,9 @@
 import * as zod from 'zod';
 
 
+export const GetMixoModelResponse = zod.record(zod.string(), zod.unknown())
+
+
 export const HealthCheckResponse = zod.object({
   "status": zod.string()
 })
@@ -40,12 +43,15 @@ export const startExperimentBodyDurationMin = 3;
 export const startExperimentBodyDurationMax = 30;
 
 export const startExperimentBodyMotionDefault = `loop`;
+export const startExperimentBodyRigDegradationDefault = `staggered`;
 
 export const StartExperimentBody = zod.object({
   "preset": zod.string().default(startExperimentBodyPresetDefault),
   "seed": zod.number().int().default(startExperimentBodySeedDefault),
   "duration": zod.number().min(startExperimentBodyDurationMin).max(startExperimentBodyDurationMax).default(startExperimentBodyDurationDefault),
   "motion": zod.enum(['loop', 'pure_rotation', 'low_parallax']).default(startExperimentBodyMotionDefault),
+  "rigDegradation": zod.enum(['staggered', 'common']).default(startExperimentBodyRigDegradationDefault),
+  "cameraParameters": zod.record(zod.string(), zod.record(zod.string(), zod.number())).optional(),
   "parameters": zod.record(zod.string(), zod.number()).optional()
 })
 
@@ -56,8 +62,67 @@ export const startExperimentResponseConfigDurationMin = 3;
 export const startExperimentResponseConfigDurationMax = 30;
 
 export const startExperimentResponseConfigMotionDefault = `loop`;
+export const startExperimentResponseConfigRigDegradationDefault = `staggered`;
 
 export const StartExperimentResponse = zod.object({
+  "mixo": zod.object({
+  "experts": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "quaternion": zod.array(zod.number()),
+  "translation": zod.array(zod.number())
+})),
+  "frames": zod.array(zod.object({
+  "index": zod.number().int(),
+  "time": zod.number(),
+  "weights": zod.record(zod.string(), zod.number()),
+  "experts": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "available": zod.boolean(),
+  "featureCount": zod.number().int(),
+  "inlierRatio": zod.number(),
+  "reprojectionError": zod.number(),
+  "quality": zod.number(),
+  "increment": zod.array(zod.number()),
+  "weight": zod.number(),
+  "reason": zod.string(),
+  "latency": zod.number()
+})),
+  "entropy": zod.number(),
+  "state": zod.string(),
+  "cause": zod.string(),
+  "positionUncertainty": zod.number(),
+  "orientationUncertainty": zod.number(),
+  "disagreement": zod.number(),
+  "activeExperts": zod.number().int(),
+  "latency": zod.number(),
+  "fusedIncrement": zod.array(zod.number()),
+  "pose": zod.object({
+  "position": zod.array(zod.number()),
+  "quaternion": zod.array(zod.number())
+})
+})),
+  "training": zod.record(zod.string(), zod.unknown()),
+  "baselines": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "ate": zod.number(),
+  "rpe": zod.number(),
+  "translationError": zod.number(),
+  "rotationError": zod.number(),
+  "drift": zod.number(),
+  "availability": zod.number(),
+  "meanLatency": zod.number(),
+  "medianLatency": zod.number(),
+  "p95Latency": zod.number(),
+  "recoveryDuration": zod.number().nullable(),
+  "keyframes": zod.number().int()
+})),
+  "measurementFingerprint": zod.string(),
+  "cameraWindows": zod.record(zod.string(), zod.array(zod.number())),
+  "limitations": zod.array(zod.string())
+}).optional(),
   "id": zod.string(),
   "createdAt": zod.string(),
   "config": zod.object({
@@ -65,6 +130,8 @@ export const StartExperimentResponse = zod.object({
   "seed": zod.number().int().default(startExperimentResponseConfigSeedDefault),
   "duration": zod.number().min(startExperimentResponseConfigDurationMin).max(startExperimentResponseConfigDurationMax).default(startExperimentResponseConfigDurationDefault),
   "motion": zod.enum(['loop', 'pure_rotation', 'low_parallax']).default(startExperimentResponseConfigMotionDefault),
+  "rigDegradation": zod.enum(['staggered', 'common']).default(startExperimentResponseConfigRigDegradationDefault),
+  "cameraParameters": zod.record(zod.string(), zod.record(zod.string(), zod.number())).optional(),
   "parameters": zod.record(zod.string(), zod.number()).optional()
 }),
   "frames": zod.array(zod.object({
@@ -139,8 +206,67 @@ export const getExperimentResponseConfigDurationMin = 3;
 export const getExperimentResponseConfigDurationMax = 30;
 
 export const getExperimentResponseConfigMotionDefault = `loop`;
+export const getExperimentResponseConfigRigDegradationDefault = `staggered`;
 
 export const GetExperimentResponse = zod.object({
+  "mixo": zod.object({
+  "experts": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "quaternion": zod.array(zod.number()),
+  "translation": zod.array(zod.number())
+})),
+  "frames": zod.array(zod.object({
+  "index": zod.number().int(),
+  "time": zod.number(),
+  "weights": zod.record(zod.string(), zod.number()),
+  "experts": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "available": zod.boolean(),
+  "featureCount": zod.number().int(),
+  "inlierRatio": zod.number(),
+  "reprojectionError": zod.number(),
+  "quality": zod.number(),
+  "increment": zod.array(zod.number()),
+  "weight": zod.number(),
+  "reason": zod.string(),
+  "latency": zod.number()
+})),
+  "entropy": zod.number(),
+  "state": zod.string(),
+  "cause": zod.string(),
+  "positionUncertainty": zod.number(),
+  "orientationUncertainty": zod.number(),
+  "disagreement": zod.number(),
+  "activeExperts": zod.number().int(),
+  "latency": zod.number(),
+  "fusedIncrement": zod.array(zod.number()),
+  "pose": zod.object({
+  "position": zod.array(zod.number()),
+  "quaternion": zod.array(zod.number())
+})
+})),
+  "training": zod.record(zod.string(), zod.unknown()),
+  "baselines": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "ate": zod.number(),
+  "rpe": zod.number(),
+  "translationError": zod.number(),
+  "rotationError": zod.number(),
+  "drift": zod.number(),
+  "availability": zod.number(),
+  "meanLatency": zod.number(),
+  "medianLatency": zod.number(),
+  "p95Latency": zod.number(),
+  "recoveryDuration": zod.number().nullable(),
+  "keyframes": zod.number().int()
+})),
+  "measurementFingerprint": zod.string(),
+  "cameraWindows": zod.record(zod.string(), zod.array(zod.number())),
+  "limitations": zod.array(zod.string())
+}).optional(),
   "id": zod.string(),
   "createdAt": zod.string(),
   "config": zod.object({
@@ -148,6 +274,8 @@ export const GetExperimentResponse = zod.object({
   "seed": zod.number().int().default(getExperimentResponseConfigSeedDefault),
   "duration": zod.number().min(getExperimentResponseConfigDurationMin).max(getExperimentResponseConfigDurationMax).default(getExperimentResponseConfigDurationDefault),
   "motion": zod.enum(['loop', 'pure_rotation', 'low_parallax']).default(getExperimentResponseConfigMotionDefault),
+  "rigDegradation": zod.enum(['staggered', 'common']).default(getExperimentResponseConfigRigDegradationDefault),
+  "cameraParameters": zod.record(zod.string(), zod.record(zod.string(), zod.number())).optional(),
   "parameters": zod.record(zod.string(), zod.number()).optional()
 }),
   "frames": zod.array(zod.object({
@@ -222,12 +350,15 @@ export const updateExperimentBodyDurationMin = 3;
 export const updateExperimentBodyDurationMax = 30;
 
 export const updateExperimentBodyMotionDefault = `loop`;
+export const updateExperimentBodyRigDegradationDefault = `staggered`;
 
 export const UpdateExperimentBody = zod.object({
   "preset": zod.string().default(updateExperimentBodyPresetDefault),
   "seed": zod.number().int().default(updateExperimentBodySeedDefault),
   "duration": zod.number().min(updateExperimentBodyDurationMin).max(updateExperimentBodyDurationMax).default(updateExperimentBodyDurationDefault),
   "motion": zod.enum(['loop', 'pure_rotation', 'low_parallax']).default(updateExperimentBodyMotionDefault),
+  "rigDegradation": zod.enum(['staggered', 'common']).default(updateExperimentBodyRigDegradationDefault),
+  "cameraParameters": zod.record(zod.string(), zod.record(zod.string(), zod.number())).optional(),
   "parameters": zod.record(zod.string(), zod.number()).optional()
 })
 
@@ -238,8 +369,67 @@ export const updateExperimentResponseConfigDurationMin = 3;
 export const updateExperimentResponseConfigDurationMax = 30;
 
 export const updateExperimentResponseConfigMotionDefault = `loop`;
+export const updateExperimentResponseConfigRigDegradationDefault = `staggered`;
 
 export const UpdateExperimentResponse = zod.object({
+  "mixo": zod.object({
+  "experts": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "quaternion": zod.array(zod.number()),
+  "translation": zod.array(zod.number())
+})),
+  "frames": zod.array(zod.object({
+  "index": zod.number().int(),
+  "time": zod.number(),
+  "weights": zod.record(zod.string(), zod.number()),
+  "experts": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "available": zod.boolean(),
+  "featureCount": zod.number().int(),
+  "inlierRatio": zod.number(),
+  "reprojectionError": zod.number(),
+  "quality": zod.number(),
+  "increment": zod.array(zod.number()),
+  "weight": zod.number(),
+  "reason": zod.string(),
+  "latency": zod.number()
+})),
+  "entropy": zod.number(),
+  "state": zod.string(),
+  "cause": zod.string(),
+  "positionUncertainty": zod.number(),
+  "orientationUncertainty": zod.number(),
+  "disagreement": zod.number(),
+  "activeExperts": zod.number().int(),
+  "latency": zod.number(),
+  "fusedIncrement": zod.array(zod.number()),
+  "pose": zod.object({
+  "position": zod.array(zod.number()),
+  "quaternion": zod.array(zod.number())
+})
+})),
+  "training": zod.record(zod.string(), zod.unknown()),
+  "baselines": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "ate": zod.number(),
+  "rpe": zod.number(),
+  "translationError": zod.number(),
+  "rotationError": zod.number(),
+  "drift": zod.number(),
+  "availability": zod.number(),
+  "meanLatency": zod.number(),
+  "medianLatency": zod.number(),
+  "p95Latency": zod.number(),
+  "recoveryDuration": zod.number().nullable(),
+  "keyframes": zod.number().int()
+})),
+  "measurementFingerprint": zod.string(),
+  "cameraWindows": zod.record(zod.string(), zod.array(zod.number())),
+  "limitations": zod.array(zod.string())
+}).optional(),
   "id": zod.string(),
   "createdAt": zod.string(),
   "config": zod.object({
@@ -247,6 +437,8 @@ export const UpdateExperimentResponse = zod.object({
   "seed": zod.number().int().default(updateExperimentResponseConfigSeedDefault),
   "duration": zod.number().min(updateExperimentResponseConfigDurationMin).max(updateExperimentResponseConfigDurationMax).default(updateExperimentResponseConfigDurationDefault),
   "motion": zod.enum(['loop', 'pure_rotation', 'low_parallax']).default(updateExperimentResponseConfigMotionDefault),
+  "rigDegradation": zod.enum(['staggered', 'common']).default(updateExperimentResponseConfigRigDegradationDefault),
+  "cameraParameters": zod.record(zod.string(), zod.record(zod.string(), zod.number())).optional(),
   "parameters": zod.record(zod.string(), zod.number()).optional()
 }),
   "frames": zod.array(zod.object({
@@ -316,6 +508,21 @@ export const GetFrameParams = zod.object({
 })
 
 export const GetFrameResponse = zod.object({
+  "expertViews": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "width": zod.number().int(),
+  "height": zod.number().int(),
+  "featureCount": zod.number().int(),
+  "sampled": zod.boolean(),
+  "features": zod.array(zod.object({
+  "id": zod.number().int(),
+  "u": zod.number(),
+  "v": zod.number(),
+  "residual": zod.number(),
+  "outlier": zod.boolean()
+}))
+})).optional(),
   "frame": zod.object({
   "index": zod.number().int(),
   "time": zod.number(),

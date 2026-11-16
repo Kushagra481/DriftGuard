@@ -1,6 +1,6 @@
-import type { Frame } from '@workspace/api-client-react';
+import type { Experiment, Frame } from '@workspace/api-client-react';
 
-export const METHOD_IDS = ['imu', 'vision', 'fixed', 'adaptive', 'driftguard'] as const;
+export const METHOD_IDS = ['imu', 'vision', 'fixed', 'adaptive', 'driftguard', 'mixo'] as const;
 export type MethodId = (typeof METHOD_IDS)[number];
 
 export const METHOD_META: Record<MethodId, { label: string; short: string; color: string; desc: string }> = {
@@ -9,7 +9,38 @@ export const METHOD_META: Record<MethodId, { label: string; short: string; color
   fixed: { label: 'Fixed-weight VIO', short: 'FIX', color: '#7d9ccb', desc: 'ESKF with fixed process/visual covariance and a fixed nine-frame visual update interval.' },
   adaptive: { label: 'Adaptive VIO', short: 'ADP', color: '#a68cff', desc: 'ESKF with health-adapted visual covariance and chi-square innovation gating; fixed nine-frame interval, no GOI.' },
   driftguard: { label: 'DriftGuard', short: 'DGX', color: '#55d3e0', desc: 'Adds geometry-aware covariance heuristics and GOI-inspired observability keyframe selection.' },
+  mixo: { label: 'MIXO-inspired 6-DoF', short: 'MXO', color: '#e8b86a', desc: 'Learned masked-softmax gate over four camera PnP experts plus IMU holdover; SO(3) rotation mean. Uses four cameras + IMU, so it is hardware-confounded against the single-camera methods.' },
 };
+
+/** Same-rig MIXO baselines reported under experiment.mixo.baselines. */
+export const MIXO_BASELINE_META: Record<string, { label: string; color: string; note: string }> = {
+  mixo: { label: 'Learned gate', color: '#e8b86a', note: 'Trained masked-softmax MLP weights.' },
+  mixo_equal: { label: 'Equal weighting', color: '#8fa3b8', note: 'Uniform weights over every available expert, same masks.' },
+  mixo_match: { label: 'Matched-count weighting', color: '#b78fd0', note: 'Weights proportional to observed feature count, same masks.' },
+};
+
+export const CAMERA_IDS = ['front', 'left', 'right', 'rear'] as const;
+export type CameraId = (typeof CAMERA_IDS)[number];
+export const CAMERA_META: Record<string, { label: string; color: string }> = {
+  front: { label: 'Front', color: '#55d3e0' },
+  left: { label: 'Left', color: '#e8b86a' },
+  right: { label: 'Right', color: '#a68cff' },
+  rear: { label: 'Rear', color: '#d9737e' },
+  imu: { label: 'IMU holdover', color: '#7d9ccb' },
+};
+export function cameraColor(id: string) {
+  return CAMERA_META[id]?.color ?? '#8a97a6';
+}
+
+/** Default windows (fraction of duration) used by the simulator per rig mode. */
+export const RIG_WINDOWS: Record<'staggered' | 'common', Record<string, [number, number]>> = {
+  staggered: { front: [0.3, 0.7], left: [0.45, 0.85], right: [0.15, 0.55], rear: [0.35, 0.75] },
+  common: { front: [0.3, 0.7], left: [0.3, 0.7], right: [0.3, 0.7], rear: [0.3, 0.7] },
+};
+
+export function hasMixo(e: Experiment | undefined) {
+  return !!e?.mixo && Array.isArray(e.mixo.frames) && e.mixo.frames.length > 0;
+}
 export const TRUTH_COLOR = '#e6dfcc';
 
 export function methodColor(id: string) {

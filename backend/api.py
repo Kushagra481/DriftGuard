@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse, Response
 from backend.models import ExperimentInput, PRESETS
 from backend.benchmarking import run_experiment
 from backend import repository
+from backend.mixo.gate import model_report
 
 app = FastAPI(title="DriftGuard XR", version="0.1.0",
               description="Controlled synthetic visual-inertial estimation research prototype.",
@@ -34,6 +35,11 @@ def health():
 @app.get("/api/presets")
 def presets():
     return PRESETS
+
+
+@app.get("/api/mixo/model")
+def mixo_model():
+    return model_report()
 
 
 @app.get("/api/experiments")
@@ -121,12 +127,18 @@ def export(experiment_id: str, format: str):
     writer = csv.writer(output)
     writer.writerow(["frame", "time_s", "method", "x_m", "y_m", "z_m",
                      "qx", "qy", "qz", "qw", "truth_x_m", "truth_y_m", "truth_z_m",
-                     "position_error_m", "tracking_state", "position_sigma_m", "keyframe"])
+                     "position_error_m", "tracking_state", "position_sigma_m", "keyframe",
+                     "gate_front", "gate_left", "gate_right", "gate_rear", "gate_imu", "gate_entropy"])
     for f in result["frames"]:
         for key, pose in f["poses"].items():
+            mixture = (result.get("mixo") or {}).get("frames", [])
+            mf = mixture[f["index"]] if key == "mixo" and mixture else None
+            weights = [mf["weights"][camera] for camera in ("front", "left", "right", "rear", "imu")] if mf else [""]*5
             writer.writerow([f["index"], f["time"], key, *pose["position"], *pose["quaternion"],
-                             *f["truth"]["position"], f["errors"][key], f["state"],
-                             f["positionUncertainty"], f["keyframe"]])
+                             *f["truth"]["position"], f["errors"][key], mf["state"] if mf else f["state"],
+                             mf["positionUncertainty"] if mf else f["positionUncertainty"],
+                             bool(sum(weights[:4]) > .02) if mf else f["keyframe"],
+                             *weights, mf["entropy"] if mf else ""])
     return Response(output.getvalue(), media_type="text/csv", headers=headers)
 
 

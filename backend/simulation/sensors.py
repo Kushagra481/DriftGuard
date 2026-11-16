@@ -44,8 +44,11 @@ def trajectory(t, motion="loop", scale=1.):
     return positions, rotations, accel
 
 
-def generate(config):
-    rng = np.random.default_rng(config.seed)
+def generate(config, rng_namespace=0):
+    # Offline gate training/validation/test streams are disjoint from runtime
+    # even if a user chooses the same numerical seed.
+    seed = config.seed if not rng_namespace else np.random.SeedSequence([config.seed, rng_namespace])
+    rng = np.random.default_rng(seed)
     params = config.resolved()
     it = np.arange(0, config.duration + 1e-8, 1/200)
     ct = np.arange(0, config.duration + 1e-8, 1/30)
@@ -82,11 +85,12 @@ def generate(config):
         accel[i] = np.clip(accel[i], -p["saturation"], p["saturation"])
         valid[i] = rng.random() >= p["imu_dropout"]
     observations = []
+    front_params = {**params, **config.cameraParameters.get("front", {})}
     previous_uv, previous_ids = None, None
     feature_reference = 1
     for i, t in enumerate(ct):
         active = config.duration*.3 <= t <= config.duration*.7
-        p = params if active else DEFAULTS
+        p = front_params if active else DEFAULTS
         uv, depth = project(landmarks, cp[i], cr[i])
         visible = (depth > .3) & (uv[:, 0] > 8) & (uv[:, 0] < 632) & (uv[:, 1] > 8) & (uv[:, 1] < 472)
         ids = np.flatnonzero(visible)
@@ -131,6 +135,7 @@ def generate(config):
     for obs in observations:
         digest.update(obs["uv"].tobytes())
         digest.update(obs["ids"].tobytes())
+        digest.update(np.asarray([obs["blur"], obs["dropout"]], dtype=np.float64).tobytes())
         obs["uv"].flags.writeable = False
         obs["ids"].flags.writeable = False
     return Measurements(landmarks, ct, it, accel, gyro, valid, saturated,

@@ -3,7 +3,10 @@ import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis
 import { useGetBenchmarks, getGetBenchmarksQueryKey, type Experiment, type MethodMetrics } from '@workspace/api-client-react';
 import { ExperimentGate, Panel, ErrorPanel, SkeletonGrid, Swatch } from '@/components/instrument';
 import { AXIS, GRID, InstrumentTooltip } from '@/components/chart-kit';
-import { fmt, methodColor, methodShort } from '@/lib/format';
+import { fmt, methodColor, methodShort, hasMixo } from '@/lib/format';
+import { MixoBaselineTable } from '@/components/mixo-kit';
+import { AlertTriangle } from 'lucide-react';
+import { Link } from 'wouter';
 
 type Key = 'ate' | 'rpe' | 'translationError' | 'rotationError' | 'drift' | 'availability' | 'meanLatency' | 'medianLatency' | 'p95Latency' | 'recoveryDuration' | 'keyframes';
 
@@ -91,9 +94,27 @@ function BenchInner({ experiment }: { experiment: Experiment }) {
 
   return (
     <div className="flex-1 overflow-auto grid grid-cols-1 xl:grid-cols-2 gap-px bg-border auto-rows-min">
+      {byId.mixo ? (
+        <div className="xl:col-span-2 bg-[#e8b86a]/[0.06] border-l-2 border-[#e8b86a] px-4 py-2.5 flex gap-3" data-testid="status-hardware-confound">
+          <AlertTriangle className="w-4 h-4 text-[#e8b86a] shrink-0 mt-0.5" />
+          <div className="text-[12px] leading-snug">
+            <span className="font-cond font-semibold uppercase tracking-[0.12em] text-[#e8b86a] text-[11px]">Hardware-confounded row</span>
+            <p className="text-muted-foreground mt-0.5">
+              MIXO-inspired 6-DoF reads <span className="text-foreground">four cameras + IMU</span>; the other five methods read <span className="text-foreground">one front camera + IMU</span>.
+              A lower MXO error in this table reflects extra sensors as much as the method, and is not evidence of equal-sensor superiority.
+              For a fair same-rig comparison use the gate baselines below, which share one frozen input fingerprint.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="xl:col-span-2 bg-secondary/40 px-4 py-2 font-mono text-[11px] text-muted-foreground flex flex-wrap gap-3" data-testid="status-no-mixo-bench">
+          This run has no MIXO-inspired metrics; only the original five methods are compared.
+          <Link href="/sensors" className="text-primary hover:underline">re-run to include it</Link>
+        </div>
+      )}
       <Panel
         title="Same-input comparison"
-        meta={`identical sensor streams · preset ${cfg.preset} · seed ${cfg.seed} · ${cfg.duration}s · ${cfg.motion}`}
+        meta={`identical front-camera + IMU streams${byId.mixo ? ' (MXO also reads left/right/rear)' : ''} · preset ${cfg.preset} · seed ${cfg.seed} · ${cfg.duration}s · ${cfg.motion}`}
         className="border-0 xl:col-span-2"
         bodyClass="overflow-x-auto"
       >
@@ -247,6 +268,14 @@ function BenchInner({ experiment }: { experiment: Experiment }) {
               <li key={i} className="text-[11.5px] text-muted-foreground leading-snug flex gap-2"><span className="font-mono text-[10px] text-accent">{String(i + 1).padStart(2, '0')}</span>{n}</li>
             ))}
           </ul>
+        )}
+      </Panel>
+
+      <Panel title="Same-rig MIXO gate comparison" meta="experiment.mixo.baselines · learned vs equal vs matched-count" className="border-0 xl:col-span-2" bodyClass="overflow-x-auto">
+        {hasMixo(experiment) ? (
+          <MixoBaselineTable rows={experiment.mixo?.baselines ?? []} fingerprint={experiment.mixo?.measurementFingerprint} />
+        ) : (
+          <div className="p-4 font-mono text-[11px] text-muted-foreground">Not available for this run: it was computed without the four-camera rig.</div>
         )}
       </Panel>
     </div>

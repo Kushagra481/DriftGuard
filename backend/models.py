@@ -38,6 +38,8 @@ class ExperimentInput(BaseModel):
     duration: float = Field(default=8, ge=3, le=30)
     motion: Literal["loop", "pure_rotation", "low_parallax"] = "loop"
     parameters: dict[str, float] = Field(default_factory=dict)
+    rigDegradation: Literal["staggered", "common"] = "staggered"
+    cameraParameters: dict[str, dict[str, float]] = Field(default_factory=dict)
 
     @field_validator("preset")
     @classmethod
@@ -67,3 +69,16 @@ class ExperimentInput(BaseModel):
 
     def resolved(self):
         return {**PRESET_MAP[self.preset]["parameters"], **self.parameters}
+
+    @field_validator("cameraParameters")
+    @classmethod
+    def valid_camera_parameters(cls, values):
+        visual = {"blur", "illumination", "feature_dropout", "frame_dropout",
+                  "pixel_noise", "outlier_ratio", "concentration"}
+        for camera, parameters in values.items():
+            if camera not in {"front", "left", "right", "rear"}:
+                raise ValueError(f"Unknown camera: {camera}")
+            if set(parameters) - visual:
+                raise ValueError("Camera overrides must be visual measurement parameters; motion and IMU controls are global.")
+            cls.valid_parameters(parameters)
+        return values

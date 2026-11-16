@@ -10,8 +10,10 @@ import type { ExperimentInput } from './experimentInput';
 import type { ExperimentMetadata } from './experimentMetadata';
 import type { Frame } from './frame';
 import type { MethodMetrics } from './methodMetrics';
+import type { MixoExperiment } from './mixoExperiment';
 
 export interface Experiment {
+  mixo?: MixoExperiment;
   id: string;
   createdAt: string;
   config: ExperimentInput;

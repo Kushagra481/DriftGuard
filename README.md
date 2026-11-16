@@ -3,7 +3,7 @@
 **A sensor-degradation-aware 6-DoF trajectory-estimation research prototype.**
 
 DriftGuard XR generates calibrated synthetic camera/IMU observations, runs actual
-numerical pose estimators on the same corrupted sequence, and presents their
+numerical pose estimators on frozen corrupted sensor sequences, and presents their
 trajectories, uncertainty, geometric influence and evaluation metrics in an
 interactive research workbench.
 
@@ -47,8 +47,9 @@ The root artifact's base path is `/`.
 3. Run the experiment. Computation is synchronous and usually takes a few seconds.
 4. Scrub the completed sequence in **Live Experiment**, **Trajectory Analysis**
    or **GOI Explorer**. Playback is a replay of computed data, not live sensors.
-5. Read the comparison and isolated ablations in **Benchmarking**.
-6. Download JSON (including per-feature diagnostics) or per-frame trajectory CSV.
+5. Inspect learned per-camera weights and failures in **MIXO Experts**.
+6. Read the comparison and isolated ablations in **Benchmarking**.
+7. Download JSON (including per-feature diagnostics and gate provenance) or per-frame trajectory CSV.
 
 The default experiment uses seed `42`, `combined`, an 8-second loop, 30 Hz
 camera and 200 Hz IMU. Corruption is applied between 30% and 70% of the sequence,
@@ -70,8 +71,12 @@ to one and runs are serialized because its RANSAC RNG is global. Requests
 submitted while another experiment runs receive HTTP 409.
 
 The measurement fingerprint hashes the IMU samples, packet-validity mask and
-camera correspondences. All methods consume the same immutable generated
-arrays; no method gets its own more favorable corruption realization.
+camera correspondences and measured health metadata. The original five methods
+and GOI ablations consume the same immutable front-camera/IMU arrays. The
+MIXO-inspired method and its uniform/MATCH baselines consume the same immutable
+four-camera/IMU rig, including that exact front stream. **Comparing MIXO against
+the original methods changes the sensor/map budget.** Its same-rig baselines
+isolate gating without that confound.
 
 ## Problem and coordinates
 
@@ -82,9 +87,9 @@ noisy, saturated or unavailable.
 World/camera axes follow OpenCV: **x right, y down, z forward**. Gravity is
 `[0, 9.81, 0]` m/s². `R_wc` maps camera vectors to world coordinates.
 Exported quaternions use **xyzw** order and rotations are integrated on SO(3).
-The camera and IMU are collocated with known identity extrinsics in this
-prototype. This is an explicit controlled simplification, not an extrinsic
-calibration algorithm.
+The original front camera and IMU are collocated with identity extrinsics.
+The MIXO rig additionally has left/right/rear cameras with known yaw rotations
+and 8 cm offsets. Neither branch estimates calibration.
 
 ## Sensor model
 
@@ -110,9 +115,10 @@ b_(k+1) = b_k + n_walk √dt
 ```
 
 The generator returns a `Measurements` object separately from `GroundTruth`.
-The estimator boundary accepts only `Measurements`. Ground truth is used
-after estimation for error reporting and never for correction, quality
-scoring, covariance adaptation or initialization.
+The original estimator boundary accepts only `Measurements`; MIXO inference
+accepts only primary and rig measurements. Ground truth is used after estimation
+for error reporting and separately as **offline supervised gate-training labels**.
+It never enters inference correction, quality scoring, uncertainty or initialization.
 
 All estimators share the first healthy frame's PnP pose and a zero-velocity
 prior. The IMU-only baseline is therefore **inertial propagation after a
@@ -241,6 +247,61 @@ innovation check never silently forces a pose correction. Inertial propagation
 continues and uncertainty grows. Returning visual observations must pass the
 same consistency test.
 
+### MIXO-inspired learned multicamera branch
+
+The approved adaptation follows Morra et al., *MIXO: Mixture Of Experts-Based
+Visual Odometry for Multicamera Autonomous Systems*, IEEE TCE (2023),
+DOI [10.1109/TCE.2023.3238655](https://doi.org/10.1109/TCE.2023.3238655).
+It is **not a reproduction** of their nuScenes/ORB-SLAM2 yaw-focused system.
+
+Four independent known-map PnP experts and independent inertial propagation
+produce body-frame motion increments. A trained NumPy MLP with two 16-unit tanh
+layers and masked softmax learns context-dependent weights. Translation is
+combined in the previous body frame; rotations use an intrinsic SO(3) mean.
+Unavailable camera increments are hard-masked to zero weight. Camera recovery
+requires two consecutive robust poses, avoiding a multi-frame jump interpreted
+as one-frame motion. No camera and poor IMU health explicitly reports uncertainty.
+
+**MIXO Experts** shows actual weights, failure reasons, sampled camera
+observations, extrinsics, training provenance and same-rig comparisons. The
+original five methods and three GOI ablations remain available. Old saved runs
+are not retroactively assigned fictitious gate results.
+
+Training is reproducible offline with no cloud services:
+
+```sh
+python -m backend.mixo.train
+curl http://localhost:80/api/mixo/model
+```
+
+A small trained artifact is included. Training, validation, test and runtime use
+disjoint random-stream namespaces even when numerical seeds coincide. Checkpoint
+selection uses validation only. Reported held-out losses are **scaled incremental
+motion MSE, not trajectory ATE**. Synthetic held-out success is not evidence of
+real headset robustness or guaranteed improvement.
+
+Per-camera visual overrides are optional:
+
+```json
+{
+  "preset": "combined",
+  "seed": 42,
+  "duration": 8,
+  "rigDegradation": "common",
+  "cameraParameters": {
+    "left": {"frame_dropout": 1},
+    "rear": {"illumination": 0.2, "outlier_ratio": 0.35}
+  }
+}
+```
+
+Absent overrides inherit the global preset/parameters. Motion and IMU parameters
+remain global. Default `staggered` corruption windows as fractions of duration
+are front `[.3,.7]`, left `[.45,.85]`, right `[.15,.55]`, rear `[.35,.75]`.
+`common` applies `[.3,.7]` to every camera. Per-camera RNG streams keep another
+camera's observed noise unchanged when one override changes. Detailed equations,
+paper differences and failure limits are in [the adaptation notes](docs/MIXO_ADAPTATION.md).
+
 ## GOI-inspired influence and observability
 
 For feature residual `r_i` and camera-centered pose perturbation, compute the
@@ -315,9 +376,11 @@ completed gaps from a failed PnP frame to the first returning valid PnP pose.
 
 ## Evaluation and ablations
 
-All comparisons use the same camera/IMU stream and initialization. Ground
-truth is evaluated without alignment or scale fitting because the map is
-already metric.
+Comparisons within each sensor budget share frozen inputs and initialization.
+MIXO's four-camera/IMU budget is compared fairly with its uniform/MATCH
+baselines, not described as equal-sensor superiority over the original
+single-camera methods. Ground truth is evaluated without alignment or scale
+fitting because the maps are already metric.
 
 - **ATE RMSE:** root mean squared Euclidean position error over camera frames.
 - **RPE RMSE:** relative translation error in local pose coordinates, with a
@@ -356,6 +419,7 @@ All routes are prefixed `/api`.
 |---|---|---|
 | GET | `/healthz` | Process health |
 | GET | `/presets` | Ten fully specified scenarios |
+| GET | `/mixo/model` | Actual trained gate status and split evidence |
 | GET | `/experiments` | Thirty most recent saved summaries |
 | POST | `/experiments` | Compute and save a new seeded run |
 | GET | `/experiments/{id}` | Trajectories, metrics and provenance |
@@ -364,7 +428,7 @@ All routes are prefixed `/api`.
 | GET | `/experiments/{id}/trajectories` | Camera-rate estimated poses |
 | GET | `/experiments/{id}/diagnostics` | Temporal sensor/estimator health |
 | GET | `/experiments/{id}/goi` | Temporal observability summary |
-| GET | `/experiments/{id}/benchmarks` | Five primary comparison methods |
+| GET | `/experiments/{id}/benchmarks` | Six primary methods; inspect sensor-budget differences |
 | GET | `/experiments/{id}/export/json` | Full structured JSON |
 | GET | `/experiments/{id}/export/csv` | Camera-rate pose/error CSV |
 
@@ -397,6 +461,7 @@ backend/
   simulation/             continuous motion, projection, camera/IMU corruption
   estimation/             PnP, 15-state ESKF, sensor health, recovery
   goi/                    influence, curvature spectrum, keyframe utility
+  mixo/                   independent experts, trained gate and 6-DoF fusion
   benchmarking/           same-input orchestration and evaluation metrics
   repository.py           durable structured experiment records
   api.py                  FastAPI REST interface
@@ -412,7 +477,8 @@ lib/db/src/schema/        database schema for experiment records
   closure or photometric rendering.
 - Known static landmark identities and metric coordinates provide controlled
   correspondences unavailable to general-purpose monocular SLAM.
-- Identity camera/IMU extrinsics, fixed gravity, no rolling shutter or clock
+- Identity front-camera/IMU extrinsics and fixed known side/rear extrinsics;
+  fixed gravity, no rolling shutter or clock
   offset calibration, no delayed/out-of-sequence measurement handling.
 - Bias and saturation models are simplified; the process covariance uses a
   small-step second-order discretization rather than full exact integration.

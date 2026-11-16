@@ -83,10 +83,10 @@ export function RunningPanel({ input, kind }: { input: ExperimentInput | null; k
           <div className="label-xs text-primary">
             {kind === 'initial' ? 'First session · running default experiment' : kind === 'derived' ? 'Deriving new run from current experiment' : 'Computing experiment'}
           </div>
-          <div className="mt-2 font-cond text-xl font-semibold">Solving five estimators against ground truth</div>
+          <div className="mt-2 font-cond text-xl font-semibold">Solving every estimator against ground truth</div>
           <p className="mt-2 text-[13px] text-muted-foreground leading-relaxed">
             The backend simulates the 30 Hz camera and 200 Hz IMU streams, injects the configured degradations across 30–70% of the
-            sequence, and runs every method on identical inputs. This is synchronous and usually takes several seconds.
+            sequence, and runs every method on identical inputs (MIXO additionally reads the side and rear cameras). This is synchronous and usually takes several seconds.
           </p>
           <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-[11px]">
             <dt className="text-muted-foreground">preset</dt>
@@ -99,6 +99,10 @@ export function RunningPanel({ input, kind }: { input: ExperimentInput | null; k
             <dd>{input?.motion ?? '—'}</dd>
             <dt className="text-muted-foreground">param overrides</dt>
             <dd>{p}</dd>
+            <dt className="text-muted-foreground">camera overrides</dt>
+            <dd>{input?.cameraParameters ? Object.keys(input.cameraParameters).length : 0}</dd>
+            <dt className="text-muted-foreground">rig degradation</dt>
+            <dd>{input?.rigDegradation ?? 'staggered'}</dd>
           </dl>
         </div>
       </div>

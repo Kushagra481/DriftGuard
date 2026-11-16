@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
-import { Activity, BookOpen, Box, Download, FlaskConical, GitCompare, LineChart, Loader2, Radar, X } from 'lucide-react';
+import { Activity, BookOpen, Box, Boxes, Download, FlaskConical, GitCompare, LineChart, Loader2, Radar, X } from 'lucide-react';
 import { exportExperiment, useHealthCheck, getHealthCheckQueryKey } from '@workspace/api-client-react';
 import { useExperimentCtx, errMsg } from '@/lib/experiment-context';
 import { fmt, shortId } from '@/lib/format';
@@ -13,7 +13,8 @@ const NAV = [
   { href: '/analysis', label: 'Trajectory Analysis', code: '03', icon: LineChart },
   { href: '/goi', label: 'GOI Explorer', code: '04', icon: Radar },
   { href: '/benchmarks', label: 'Benchmarking', code: '05', icon: GitCompare },
-  { href: '/methodology', label: 'Methodology', code: '06', icon: BookOpen },
+  { href: '/experts', label: 'MIXO Experts', code: '06', icon: Boxes },
+  { href: '/methodology', label: 'Methodology', code: '07', icon: BookOpen },
 ];
 
 function Mark() {

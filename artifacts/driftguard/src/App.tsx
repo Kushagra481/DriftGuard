@@ -13,6 +13,7 @@ import AnalysisPage from '@/pages/analysis';
 import GoiPage from '@/pages/goi';
 import BenchmarksPage from '@/pages/benchmarks';
 import MethodologyPage from '@/pages/methodology';
+import ExpertsPage from '@/pages/experts';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1 } },
@@ -28,6 +29,7 @@ function Router() {
           <Route path="/analysis" component={AnalysisPage} />
           <Route path="/goi" component={GoiPage} />
           <Route path="/benchmarks" component={BenchmarksPage} />
+          <Route path="/experts" component={ExpertsPage} />
           <Route path="/methodology" component={MethodologyPage} />
           <Route component={NotFound} />
         </Switch>

@@ -5,10 +5,12 @@
  * DriftGuard XR controlled synthetic visual-inertial benchmark
  * OpenAPI spec version: 0.1.0
  */
+import type { ExpertView } from './expertView';
 import type { Feature } from './feature';
 import type { Frame } from './frame';
 
 export interface FrameDetail {
+  expertViews?: ExpertView[];
   frame: Frame;
   features: Feature[];
   weakestDirection: number[];

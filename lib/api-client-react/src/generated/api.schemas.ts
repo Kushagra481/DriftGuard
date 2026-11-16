@@ -20,6 +20,16 @@ export const ExperimentInputMotion = {
   low_parallax: 'low_parallax',
 } as const;
 
+export type ExperimentInputRigDegradation = typeof ExperimentInputRigDegradation[keyof typeof ExperimentInputRigDegradation];
+
+
+export const ExperimentInputRigDegradation = {
+  staggered: 'staggered',
+  common: 'common',
+} as const;
+
+export type ExperimentInputCameraParameters = {[key: string]: {[key: string]: number}};
+
 export type ExperimentInputParameters = {[key: string]: number};
 
 export interface ExperimentInput {
@@ -31,6 +41,8 @@ export interface ExperimentInput {
      */
   duration?: number;
   motion?: ExperimentInputMotion;
+  rigDegradation?: ExperimentInputRigDegradation;
+  cameraParameters?: ExperimentInputCameraParameters;
   parameters?: ExperimentInputParameters;
 }
 
@@ -120,7 +132,26 @@ export interface Feature {
   missing: boolean;
 }
 
+export interface ObservationPoint {
+  id: number;
+  u: number;
+  v: number;
+  residual: number;
+  outlier: boolean;
+}
+
+export interface ExpertView {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  featureCount: number;
+  sampled: boolean;
+  features: ObservationPoint[];
+}
+
 export interface FrameDetail {
+  expertViews?: ExpertView[];
   frame: Frame;
   features: Feature[];
   weakestDirection: number[];
@@ -141,7 +172,62 @@ export type ExperimentCamera = {
 
 export type ExperimentMetadata = {[key: string]: unknown};
 
+export interface ExpertDescriptor {
+  id: string;
+  name: string;
+  quaternion: number[];
+  translation: number[];
+}
+
+export interface ExpertDiagnostic {
+  id: string;
+  name: string;
+  available: boolean;
+  featureCount: number;
+  inlierRatio: number;
+  reprojectionError: number;
+  quality: number;
+  increment: number[];
+  weight: number;
+  reason: string;
+  latency: number;
+}
+
+export type MixoFrameWeights = {[key: string]: number};
+
+export interface MixoFrame {
+  index: number;
+  time: number;
+  weights: MixoFrameWeights;
+  experts: ExpertDiagnostic[];
+  entropy: number;
+  state: string;
+  cause: string;
+  positionUncertainty: number;
+  orientationUncertainty: number;
+  disagreement: number;
+  activeExperts: number;
+  latency: number;
+  fusedIncrement: number[];
+  pose: Pose;
+}
+
+export interface MixoModel {[key: string]: unknown}
+
+export type MixoExperimentCameraWindows = {[key: string]: number[]};
+
+export interface MixoExperiment {
+  experts: ExpertDescriptor[];
+  frames: MixoFrame[];
+  training: MixoModel;
+  baselines: MethodMetrics[];
+  measurementFingerprint: string;
+  cameraWindows: MixoExperimentCameraWindows;
+  limitations: string[];
+}
+
 export interface Experiment {
+  mixo?: MixoExperiment;
   id: string;
   createdAt: string;
   config: ExperimentInput;

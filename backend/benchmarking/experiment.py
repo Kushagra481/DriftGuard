@@ -16,6 +16,9 @@ from backend.estimation.health import visual_health, inertial_health
 from backend.estimation.recovery import Recovery
 from backend.goi import diagnose, KeyframePolicy
 from backend.goi.influence import empty_geometry
+from backend.simulation.rig import generate_rig
+from backend.mixo.gate import load_gate
+from backend.mixo.runner import run_mixo, RIG_METHODS
 from .metrics import compute_metrics
 
 METHODS = {
@@ -226,16 +229,58 @@ def run_experiment(config):
         frame["truth"] = pose_dict(truth.positions[i], truth.rotations[i])
     resolved = config.model_dump()
     resolved["parameters"] = config.resolved()
+    # A separate, explicitly larger sensor budget. The five original methods
+    # and three GOI ablations above remain unchanged single-camera comparisons.
+    rig = generate_rig(config, measurements)
+    gate = load_gate()
+    mixo_frames, expert_views, rig_trajectories, rig_recovery, rig_counts = run_mixo(measurements, rig, gate)
+    rig_metrics = []
+    for key, name in RIG_METHODS.items():
+        tr = rig_trajectories[key]
+        metric, errors = compute_metrics(key, name, tr["p"], tr["q"], truth,
+                                         tr["available"], tr["latency"], rig_recovery[key], rig_counts[key])
+        rig_metrics.append(metric)
+        if key == "mixo":
+            metrics.append(metric)
+            for i, frame in enumerate(frames):
+                frame["poses"][key] = mixo_frames[i]["pose"]
+                frame["errors"][key] = float(errors[i])
+    for detail, views in zip(details, expert_views):
+        detail["expertViews"] = views
     result = {
         "id": str(uuid.uuid4()), "createdAt": datetime.now(timezone.utc).isoformat(),
         "config": resolved, "frames": frames, "metrics": metrics,
         "landmarks": measurements.landmarks.tolist(),
         "camera": {"width": 640, "height": 480, "fx": 460., "fy": 460., "cx": 320., "cy": 240.},
+        "mixo": {
+            "experts": [camera.descriptor() for camera in rig.cameras] + [
+                {"id": "imu", "name": "IMU propagation", "quaternion": [0., 0., 0., 1.],
+                 "translation": [0., 0., 0.]}],
+            "frames": mixo_frames, "training": gate.report, "baselines": rig_metrics,
+            "measurementFingerprint": rig.fingerprint,
+            "cameraWindows": {camera: [value/config.duration for value in window]
+                              for camera, window in rig.windows.items()},
+            "limitations": [
+                "MIXO-inspired synthetic 6-DoF adaptation; not a reproduction of the paper's yaw-focused nuScenes training.",
+                "Four cameras plus IMU versus one camera plus IMU in the original methods; use the same-rig baselines to isolate gating.",
+                "Each camera estimates pose against a known metric map using simulated correspondences, not ORB-SLAM2 or raw images.",
+                "All experts fuse consecutive relative motion; camera reappearance needs two consecutive valid frames.",
+                "Pinhole calibration and camera-to-body extrinsics are known, fixed and time synchronized.",
+                "Uncertainty is conservative diagnostic propagation, not a calibrated Bayesian posterior or accuracy guarantee.",
+                "Inertial bias can be unobservable; simultaneous camera/IMU degradation may cause unbounded drift.",
+                "Staggered camera corruption windows are a simulation assumption; use common windows to test simultaneous failures.",
+                "Preview observations are sampled to 80 per camera; all measured features enter PnP and gate statistics.",
+                "Gate training/validation/test and runtime use disjoint RNG namespaces, even for identical numerical seeds.",
+            ],
+        },
         "metadata": {
             "source": "Synthetic calibrated known-landmark pose benchmark; NOT general-purpose SLAM.",
             "cameraHz": 30, "imuHz": 200, "imuPackets": len(measurements.imu_times),
             "cameraFrames": len(frames), "measurementFingerprint": measurements.fingerprint,
-            "methodFingerprints": {key: measurements.fingerprint for key in METHODS},
+            "methodFingerprints": {**{key: measurements.fingerprint for key in METHODS}, "mixo": rig.fingerprint},
+            "rigMethodFingerprints": {key: rig.fingerprint for key in RIG_METHODS},
+            "sensorBudgets": {"originalMethods": "1 front camera + IMU; original known map",
+                              "mixoMethods": "4 cameras + IMU; additional side/rear map surfaces"},
             "ablationFingerprints": {key: measurements.fingerprint for key in ABLATIONS},
             "ablationMetrics": ablation_metrics,
             "goiDistributions": influence_distributions(frames, details),

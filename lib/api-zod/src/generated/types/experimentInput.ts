@@ -5,8 +5,10 @@
  * DriftGuard XR controlled synthetic visual-inertial benchmark
  * OpenAPI spec version: 0.1.0
  */
+import type { ExperimentInputCameraParameters } from './experimentInputCameraParameters';
 import type { ExperimentInputMotion } from './experimentInputMotion';
 import type { ExperimentInputParameters } from './experimentInputParameters';
+import type { ExperimentInputRigDegradation } from './experimentInputRigDegradation';
 
 export interface ExperimentInput {
   preset?: string;
@@ -17,5 +19,7 @@ export interface ExperimentInput {
      */
   duration?: number;
   motion?: ExperimentInputMotion;
+  rigDegradation?: ExperimentInputRigDegradation;
+  cameraParameters?: ExperimentInputCameraParameters;
   parameters?: ExperimentInputParameters;
 }

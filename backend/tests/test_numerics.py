@@ -164,7 +164,11 @@ def test_experiment_identical_stream_and_finite_outputs():
     r, d = run_experiment(ExperimentInput(preset="camera_dropout", duration=3,
                                           parameters={"frame_dropout": 1.}))
     assert len(r["frames"]) == len(d) == 91
-    assert len(set(r["metadata"]["methodFingerprints"].values())) == 1
+    original = {key: value for key, value in r["metadata"]["methodFingerprints"].items() if key != "mixo"}
+    assert len(original) == 5 and len(set(original.values())) == 1
+    assert len(set(r["metadata"]["rigMethodFingerprints"].values())) == 1
+    assert r["metadata"]["methodFingerprints"]["mixo"] == r["mixo"]["measurementFingerprint"]
+    assert len(r["metrics"]) == 6
     middle = [f for f in r["frames"] if f["degraded"]]
     assert all(f["featureCount"] == 0 for f in middle)
     assert any(f["state"] == "INERTIAL_HOLDOVER" for f in middle)

@@ -32,6 +32,7 @@ import type {
   FrameDetail,
   HealthStatus,
   MethodMetrics,
+  MixoModel,
   NumericalDiagnostic,
   Preset
 } from './api.schemas';
@@ -62,6 +63,101 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetMixoModelUrl = () => {
+
+
+
+
+  return `/api/mixo/model`
+}
+
+export const getMixoModel = async ( options?: Parameters<typeof customFetch>[1]): Promise<MixoModel> => {
+
+  return customFetch<MixoModel>(getGetMixoModelUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMixoModelQueryKey = () => {
+    return [
+    `/api/mixo/model`
+    ] as const;
+    }
+
+
+export const getGetMixoModelQueryOptions = <TData = Awaited<ReturnType<typeof getMixoModel>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMixoModel>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMixoModelQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMixoModel>>> = ({ signal }) => getMixoModel({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMixoModel>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetMixoModelQueryResult = NonNullable<Awaited<ReturnType<typeof getMixoModel>>>
+export type GetMixoModelQueryError = ErrorType<unknown>
+
+
+export function useGetMixoModel<TData = Awaited<ReturnType<typeof getMixoModel>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMixoModel>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMixoModel>>,
+          TError,
+          Awaited<ReturnType<typeof getMixoModel>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMixoModel<TData = Awaited<ReturnType<typeof getMixoModel>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMixoModel>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMixoModel>>,
+          TError,
+          Awaited<ReturnType<typeof getMixoModel>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMixoModel<TData = Awaited<ReturnType<typeof getMixoModel>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMixoModel>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetMixoModel<TData = Awaited<ReturnType<typeof getMixoModel>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMixoModel>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetMixoModelQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getHealthCheckUrl = () => {
 
