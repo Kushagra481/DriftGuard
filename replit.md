@@ -1,45 +1,46 @@
-# [Project name]
+# DriftGuard XR
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A controlled synthetic visual-inertial pose-estimation research workbench.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- `artifacts/api-server: API Server` runs the **Python FastAPI** application using
+  `pnpm --filter @workspace/api-server run dev` → `python -m backend.api`.
+- `artifacts/driftguard: web` runs the React frontend at `/`.
+- `python -m pytest backend/tests -q` runs numerical tests.
+- `pnpm run typecheck` checks TypeScript.
+- `pnpm --filter @workspace/api-spec run codegen` regenerates API types/hooks.
+- `DATABASE_URL` is required for durable structured experiment records.
+- Python dependencies are in `pyproject.toml` / `uv.lock`; install with `uv sync --frozen`.
 
-## Stack
+## Product and constraints
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+This is a real numerical synthetic benchmark, not general-purpose SLAM or real
+headset integration. The user explicitly requires actual corrupted sensor
+measurements, ESKF/PnP algorithms, honest uncertainty and computed metrics.
+Never replace these with frontend-generated trajectories or hardcoded results.
+No paid APIs, cloud AI or external LLM dependencies.
 
-## Where things live
+## Architecture
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `backend/simulation`: seeded 30 Hz camera, 200 Hz IMU, indoor landmarks.
+- `backend/estimation`: PnP, right-error 15-state ESKF, health/recovery.
+- `backend/goi`: observable-subspace GOI-inspired influence and keyframes.
+- `backend/benchmarking`: same-input estimators, isolated ablations, metrics.
+- `backend/api.py`: FastAPI endpoints; old Express scaffold is unused.
+- `backend/repository.py`: PostgreSQL JSONB numerical records.
+- `artifacts/driftguard`: six-route React / R3F / Recharts workbench.
+- See `README.md` for equations, units, API, limitations and reproduction.
 
-## Architecture decisions
+## Non-obvious rules
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
-
-## Product
-
-_Describe the high-level user-facing capabilities of this app once they exist._
-
-## User preferences
-
-_Populate as you build — explicit user instructions worth remembering across sessions._
-
-## Gotchas
-
-_Populate as you build — sharp edges, "always run X before Y" rules._
-
-## Pointers
-
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- Estimators accept `Measurements`, never `GroundTruth`. First-frame PnP and a
+  zero-velocity prior initialize all methods; truth is evaluation-only.
+- Raw GOI is an influence diagnostic, not an outlier classifier. Robust residual
+  testing handles outliers. Do not reject a feature because it has high GOI.
+- Simulations serialize because OpenCV RANSAC's RNG is global.
+- Quaternions are xyzw; world/camera axes are OpenCV x-right/y-down/z-forward.
+- Keep the three isolation ablations: diagnostics alone must preserve the pose,
+  geometry covariance and keyframe selection must also be compared separately.
+- Histories are immutable; PATCH computes a new experiment without overwriting.
+- Do not remove uncertainty/failure disclosures to improve apparent performance.

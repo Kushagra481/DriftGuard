@@ -1,36 +1,297 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: DriftGuard XR controlled synthetic visual-inertial benchmark
 servers:
   - url: /api
-    description: Base API path
-tags:
-  - name: health
-    description: Health operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
-      tags: [health]
-      summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
           content:
             application/json:
+              schema: { $ref: "#/components/schemas/HealthStatus" }
+  /presets:
+    get:
+      operationId: getPresets
+      responses:
+        "200":
+          description: Reproducible degradation scenarios
+          content:
+            application/json:
               schema:
-                $ref: "#/components/schemas/HealthStatus"
+                type: array
+                items: { $ref: "#/components/schemas/Preset" }
+  /experiments:
+    get:
+      operationId: listExperiments
+      responses:
+        "200":
+          description: Recent experiment summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ExperimentSummary" }
+    post:
+      operationId: startExperiment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExperimentInput" }
+      responses:
+        "200":
+          description: Computed experiment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Experiment" }
+  /experiments/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getExperiment
+      responses:
+        "200":
+          description: Full computed trajectories and diagnostics
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Experiment" }
+    patch:
+      operationId: updateExperiment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExperimentInput" }
+      responses:
+        "200":
+          description: New experiment with updated parameters
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Experiment" }
+  /experiments/{id}/frames/{index}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+      - { name: index, in: path, required: true, schema: { type: integer } }
+    get:
+      operationId: getFrame
+      responses:
+        "200":
+          description: Camera observations and GOI at selected frame
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FrameDetail" }
+  /experiments/{id}/benchmarks:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getBenchmarks
+      responses:
+        "200":
+          description: Identical-input estimator comparison
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/MethodMetrics" }
+  /experiments/{id}/trajectories:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getTrajectories
+      responses:
+        "200":
+          description: Camera-rate trajectories
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Frame" }
+  /experiments/{id}/diagnostics:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getSensorDiagnostics
+      responses:
+        "200":
+          description: Temporal sensor health, uncertainty and state diagnostics
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/NumericalDiagnostic" }
+  /experiments/{id}/goi:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getGoiDiagnostics
+      responses:
+        "200":
+          description: Temporal curvature, influence and keyframe utility
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/NumericalDiagnostic" }
+  /experiments/{id}/export/{format}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+      - { name: format, in: path, required: true, schema: { type: string, enum: [json, csv] } }
+    get:
+      operationId: exportExperiment
+      responses:
+        "200":
+          description: Downloadable experiment JSON or per-frame CSV
+          content:
+            text/plain:
+              schema: { type: string }
 components:
   schemas:
+    NumericalDiagnostic:
+      type: object
+      additionalProperties: {}
     HealthStatus:
       type: object
+      required: [status]
       properties:
-        status:
-          type: string
-      required:
-        - status
-
+        status: { type: string }
+    ExperimentInput:
+      type: object
+      properties:
+        preset: { type: string, default: combined }
+        seed: { type: integer, default: 42 }
+        duration: { type: number, minimum: 3, maximum: 30, default: 8 }
+        motion: { type: string, enum: [loop, pure_rotation, low_parallax], default: loop }
+        parameters:
+          type: object
+          additionalProperties: { type: number }
+    Preset:
+      type: object
+      required: [id, name, description, parameters]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        parameters:
+          type: object
+          additionalProperties: { type: number }
+    ExperimentSummary:
+      type: object
+      required: [id, createdAt, preset, seed, duration, ate]
+      properties:
+        id: { type: string }
+        createdAt: { type: string }
+        preset: { type: string }
+        seed: { type: integer }
+        duration: { type: number }
+        ate: { type: number }
+    Pose:
+      type: object
+      required: [position, quaternion]
+      properties:
+        position: { type: array, items: { type: number } }
+        quaternion: { type: array, items: { type: number } }
+    MethodMetrics:
+      type: object
+      required: [id, name, ate, rpe, translationError, rotationError, drift, availability, meanLatency, medianLatency, p95Latency, recoveryDuration, keyframes]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        ate: { type: number }
+        rpe: { type: number }
+        translationError: { type: number }
+        rotationError: { type: number }
+        drift: { type: number }
+        availability: { type: number }
+        meanLatency: { type: number }
+        medianLatency: { type: number }
+        p95Latency: { type: number }
+        recoveryDuration: { type: [number, "null"] }
+        keyframes: { type: integer }
+    Frame:
+      type: object
+      required: [index, time, truth, poses, errors, state, cause, visualQuality, imuQuality, inlierRatio, reprojectionError, featureCount, positionUncertainty, orientationUncertainty, eigenvalues, conditionNumber, translationObservability, rotationObservability, keyframe, fixedKeyframe, keyframeReason, informationGain, goiMean, latency, degraded]
+      properties:
+        index: { type: integer }
+        time: { type: number }
+        truth: { $ref: "#/components/schemas/Pose" }
+        poses:
+          type: object
+          additionalProperties: { $ref: "#/components/schemas/Pose" }
+        errors:
+          type: object
+          additionalProperties: { type: number }
+        state: { type: string }
+        cause: { type: string }
+        visualQuality: { type: number }
+        imuQuality: { type: number }
+        inlierRatio: { type: number }
+        reprojectionError: { type: number }
+        featureCount: { type: integer }
+        positionUncertainty: { type: number }
+        orientationUncertainty: { type: number }
+        eigenvalues: { type: array, items: { type: number } }
+        conditionNumber: { type: number }
+        translationObservability: { type: number }
+        rotationObservability: { type: number }
+        keyframe: { type: boolean }
+        fixedKeyframe: { type: boolean }
+        keyframeReason: { type: string }
+        informationGain: { type: number }
+        goiMean: { type: number }
+        latency: { type: number }
+        degraded: { type: boolean }
+    Feature:
+      type: object
+      required: [id, u, v, predictedU, predictedV, landmark, residual, weight, goi, outlier, missing]
+      properties:
+        id: { type: integer }
+        u: { type: number }
+        v: { type: number }
+        predictedU: { type: number }
+        predictedV: { type: number }
+        landmark: { type: array, items: { type: number } }
+        residual: { type: number }
+        weight: { type: number }
+        goi: { type: number }
+        outlier: { type: boolean }
+        missing: { type: boolean }
+    FrameDetail:
+      type: object
+      required: [frame, features, weakestDirection, observableRank, coverage, parallax, blur]
+      properties:
+        frame: { $ref: "#/components/schemas/Frame" }
+        features: { type: array, items: { $ref: "#/components/schemas/Feature" } }
+        weakestDirection: { type: array, items: { type: number } }
+        observableRank: { type: integer }
+        coverage: { type: number }
+        parallax: { type: number }
+        blur: { type: number }
+    Experiment:
+      type: object
+      required: [id, createdAt, config, frames, metrics, landmarks, camera, metadata]
+      properties:
+        id: { type: string }
+        createdAt: { type: string }
+        config: { $ref: "#/components/schemas/ExperimentInput" }
+        frames: { type: array, items: { $ref: "#/components/schemas/Frame" } }
+        metrics: { type: array, items: { $ref: "#/components/schemas/MethodMetrics" } }
+        landmarks: { type: array, items: { type: array, items: { type: number } } }
+        camera:
+          type: object
+          required: [width, height, fx, fy, cx, cy]
+          properties:
+            width: { type: integer }
+            height: { type: integer }
+            fx: { type: number }
+            fy: { type: number }
+            cx: { type: number }
+            cy: { type: number }
+        metadata:
+          type: object
+          additionalProperties: {}

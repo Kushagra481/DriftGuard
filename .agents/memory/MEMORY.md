@@ -1,0 +1,1 @@
+- [MIXO research direction](mixo-research-direction.md) — user wants the uploaded MIXO paper to guide degradation handling.

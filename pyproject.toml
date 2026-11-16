@@ -1,0 +1,25 @@
+[project]
+name = "repl-nix-workspace"
+version = "0.1.0"
+description = "DriftGuard XR reproducible visual-inertial trajectory-estimation research prototype"
+authors = [
+    { name = "shuklakushagra6", email = "33569234-shuklakushagra6@users.noreply.replit.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.163.1",
+    "numpy>=2.4.6",
+    "opencv-python-headless>=5.0.0.93",
+    "psycopg[binary]>=3.3.9",
+    "pydantic>=2.14.3",
+    "pytest>=9.2.0",
+    "scipy>=1.17.1",
+    "uvicorn>=0.54.0",
+]
+
+[project.scripts]
+repl-nix-workspace = "repl_nix_workspace:main"
+
+[build-system]
+requires = ["uv_build>=0.13.4,<0.14.0"]
+build-backend = "uv_build"

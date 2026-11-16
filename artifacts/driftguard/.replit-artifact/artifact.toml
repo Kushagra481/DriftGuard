@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "DriftGuard XR"
+description = "Reproducible visual-inertial estimation research workbench with sensor degradation, ESKF baselines, geometric observability diagnostics and 3D trajectory analysis."
+version = "1.0.0"
+id = "artifacts/driftguard"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19774
+
+[services.development]
+run = "pnpm --filter @workspace/driftguard run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/driftguard", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/driftguard/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19774"
+BASE_PATH = "/"

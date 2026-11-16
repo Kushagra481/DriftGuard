@@ -1,0 +1,458 @@
+# Build DriftGuard XR — Sensor-Degradation-Aware 6-DoF Trajectory Estimation
+
+You are building a serious computer vision and robotics research prototype called **DriftGuard XR**.
+
+This is NOT a landing page, generic analytics dashboard, or frontend-only simulation.
+
+The project addresses:
+
+**Trajectory estimation under sensor degradation for Extended Reality (XR).**
+
+The objective is to develop and demonstrate a robust visual-inertial trajectory estimation system that maintains reliable 6-DoF pose estimates when camera and IMU measurements become unreliable.
+
+The central technical contribution is an adaptive visual-inertial estimator incorporating geometric observability analysis and Geometric Observability Index (GOI)-inspired feature influence diagnostics.
+
+Build an actual functioning application with a reproducible simulation, numerical estimation algorithms, comparison baselines, evaluation metrics, and an interactive 3D visualization.
+
+## 1. Technology stack
+
+Frontend:
+- React
+- TypeScript
+- Vite
+- Tailwind CSS
+- Three.js / React Three Fiber for 3D trajectory visualization
+- Recharts for metrics and time-series plots
+
+Backend:
+- Python
+- FastAPI
+- NumPy
+- SciPy
+- OpenCV
+- Pydantic
+
+Use REST APIs for frontend/backend communication.
+
+Do not depend on paid APIs, cloud AI services, or external LLMs.
+
+## 2. Application layout
+
+Create a premium technical research workbench.
+
+Application name: DriftGuard XR
+
+Design inspiration:
+- Professional robotics research software
+- Modern scientific instrumentation dashboards
+- High-quality dark interface
+- Subtle cyan and violet accents
+- Clean typography
+- Dense but readable technical information
+- Minimal animations
+- No generic SaaS landing page design
+
+Main navigation:
+
+1. Live Experiment
+2. Sensor Laboratory
+3. Trajectory Analysis
+4. GOI Explorer
+5. Benchmarking
+6. Methodology
+
+### Main experiment dashboard
+
+Display:
+
+- Live 3D reconstructed camera trajectory
+- Ground-truth trajectory
+- IMU-only estimated trajectory
+- Vision-only estimated trajectory
+- Fixed-weight visual-inertial baseline
+- Proposed DriftGuard trajectory
+- Virtual spatial anchor displaying estimated positional drift
+
+Provide a camera-view panel displaying projected landmarks, visible features, missing observations, and outliers.
+
+Metrics:
+
+- Absolute Trajectory Error (ATE RMSE)
+- Relative Pose Error (RPE)
+- Translational drift
+- Rotational error
+- Tracking availability
+- Visual inlier percentage
+- Reprojection error
+- Position uncertainty
+- Orientation uncertainty
+- Processing latency
+
+All values must come from actual computation.
+
+Never hardcode performance results.
+
+## 3. Implement a reproducible sensor simulator
+
+Create a Python module called `simulation`.
+
+Generate a smooth, configurable 6-DoF camera trajectory in a static indoor environment.
+
+Generate:
+- Ground-truth camera position
+- Ground-truth orientation
+- Static 3D landmarks
+- Camera intrinsics
+- Camera-to-IMU extrinsics
+- Camera timestamps at approximately 30 Hz
+- IMU timestamps at approximately 200 Hz
+
+Project 3D landmarks into camera coordinates using a calibrated pinhole camera model.
+
+Generate corresponding 2D feature observations.
+
+Create configurable degradation models.
+
+Visual degradation:
+- Motion blur indicator
+- Low illumination
+- Feature dropout
+- Camera frame dropout
+- Measurement noise
+- Dynamic feature outliers
+- Spatially concentrated features
+- Reduced parallax
+
+Inertial degradation:
+- Gyroscope white noise
+- Accelerometer white noise
+- Gyroscope bias
+- Accelerometer bias
+- Bias random walk
+- Sensor saturation
+- IMU packet dropout
+- Scale-factor error
+
+All degradation parameters must be configurable independently.
+
+Create presets:
+- Clean environment
+- Low illumination
+- Heavy motion blur
+- Partial camera occlusion
+- Dynamic objects
+- IMU drift
+- IMU vibration/noise
+- Camera frame dropout
+- Combined sensor degradation
+- Extreme tracking conditions
+
+Make the simulations reproducible using configurable random seeds.
+
+Important: use actual generated sensor measurements in the estimation backend. Do not merely draw a trajectory and pretend it was estimated.
+
+For the initial simulation, known 3D landmark identities may be used to provide correspondences. Clearly document that this is a controlled pose-estimation benchmark, not general-purpose monocular SLAM.
+
+Generate a corresponding camera-view preview so that the user can visually inspect the degraded observations.
+
+## 4. Implement actual trajectory estimation
+
+Create an `estimation` Python package.
+
+Implement the following baselines:
+
+A. IMU-only propagation.
+
+B. Vision-only pose estimation using OpenCV solvePnPRansac with known simulated landmark correspondences.
+
+C. Fixed-covariance visual-inertial fusion.
+
+D. Proposed adaptive DriftGuard estimator.
+
+Implement a 15-state error-state Kalman filter.
+
+State:
+- Position
+- Velocity
+- Quaternion orientation
+- Gyroscope bias
+- Accelerometer bias
+
+Implement:
+- IMU state propagation
+- Quaternion integration
+- IMU bias handling
+- Covariance propagation
+- Visual pose updates
+- Pose innovation calculation
+- Mahalanobis consistency testing
+- Measurement covariance adaptation
+- Numerical stability checks
+
+Do not replace these operations with moving averages or arbitrary smoothing.
+
+### Adaptive sensor reliability
+
+Compute a visual quality estimate using:
+- Feature count
+- Feature spatial distribution
+- RANSAC inlier ratio
+- Reprojection RMSE
+- Motion blur indicator
+- Feature dropout
+- Parallax
+- Geometric conditioning
+
+Compute inertial quality using:
+- Measured noise
+- Saturation
+- Missing packets
+- Innovation residual
+- Bias estimates
+
+Adapt visual measurement covariance and inertial process covariance based on sensor health.
+
+When visual tracking becomes unreliable:
+- Downweight or temporarily reject unreliable visual updates.
+- Continue inertial propagation.
+- Increase uncertainty appropriately.
+- Avoid pretending the pose remains accurate.
+
+When visual observations recover:
+- Validate them against the predicted state.
+- Apply robust visual correction.
+- Track recovery time.
+
+Compare this estimator against the fixed-weight baseline using identical sensor observations.
+
+## 5. GOI and geometric observability module
+
+Create a separate `goi` package.
+
+Implement per-feature influence computation for SE(3) pose estimation.
+
+For each feature:
+- Calculate reprojection residual.
+- Calculate its pose Jacobian.
+- Calculate the weighted Gauss-Newton curvature matrix.
+- Perform eigendecomposition.
+- Identify the observable subspace.
+- Calculate the feature's influence in that observable subspace.
+- Calculate its GOI value.
+
+Use a clearly documented SE(3) metric to handle translation and rotation units.
+
+Recenter coordinates around the current camera pose when computing geometry-sensitive diagnostics.
+
+Display:
+- Individual feature GOI
+- Feature residual
+- Feature robust weight
+- Curvature eigenvalues
+- Condition number
+- Weakest observable direction
+- Translation versus rotation observability
+- GOI distribution over time
+
+IMPORTANT:
+GOI must NOT be implemented as a simplistic outlier score.
+
+Do not reject observations merely because they have high raw GOI.
+
+Use normalized residual-based robust estimation for outlier handling, while GOI is used for influence attribution and geometric sensitivity diagnostics.
+
+### GOI-informed keyframe selection
+
+Implement a keyframe utility based on:
+- Incremental information gain
+- Weak-direction observability improvement
+- Feature coverage
+- Parallax
+- Geometric conditioning
+
+Compare against a simple fixed-interval keyframe policy.
+
+Expose the keyframe decisions and their numerical reasoning.
+
+## 6. Recovery state machine
+
+Implement explicit tracking states:
+
+- NORMAL
+- VISUAL_DEGRADED
+- IMU_DEGRADED
+- MULTI_SENSOR_DEGRADED
+- INERTIAL_HOLDOVER
+- VISUAL_RECOVERY
+- TRACKING_UNCERTAIN
+
+Use actual sensor quality and estimator uncertainty to determine transitions.
+
+Display the current state and its cause in the interface.
+
+When uncertainty exceeds configured bounds, explicitly report that tracking is uncertain instead of presenting a falsely confident estimate.
+
+## 7. Evaluation and benchmarking
+
+Create a benchmarking module.
+
+Compare:
+
+1. IMU-only
+2. Vision-only
+3. Fixed-weight VIO
+4. Adaptive VIO without GOI
+5. Full DriftGuard with GOI-based diagnostics and observability-aware keyframe selection
+
+Calculate:
+
+- ATE RMSE
+- RPE RMSE
+- Translation error
+- Rotation error
+- Trajectory drift
+- Tracking availability
+- Recovery duration
+- Mean latency
+- Median latency
+- 95th percentile latency
+
+Implement ablation studies to isolate the contributions of adaptive covariance, GOI diagnostics and keyframe selection.
+
+Every method must receive the same underlying corrupted input sequence.
+
+Ground truth may only be used for evaluation, never as an estimator input.
+
+Clearly distinguish simulated experiments from real sensor experiments.
+
+Add CSV and JSON experiment exports.
+
+## 8. GOI Explorer
+
+Create a dedicated interactive view.
+
+Display a 3D representation of camera motion and landmark observations.
+
+Show individual feature influence.
+
+Use distinct visual treatment for:
+- Reliable correspondences
+- Outliers identified by robust residual testing
+- High-influence observations
+- Geometrically weak directions
+
+Allow inspection of individual frames and features.
+
+Show how the curvature spectrum changes under:
+- Pure rotation
+- Low parallax
+- Feature loss
+- Dynamic feature contamination
+- Strong geometric coverage
+
+The user must be able to compare GOI distributions before and after sensor degradation.
+
+## 9. Automated testing
+
+Add real backend unit tests.
+
+At minimum test:
+
+- Deterministic simulation with fixed random seed.
+- Camera projection correctness.
+- IMU integration.
+- Quaternion normalization.
+- ESKF covariance symmetry and positive semidefiniteness.
+- GOI computation in observable and weakly observable cases.
+- Correct handling of visual outliers.
+- Covariance growth during extended visual dropout.
+- Recovery when visual measurements return.
+- Baseline and proposed estimator receiving identical measurements.
+- Metric computation against known ground truth.
+
+Do not fabricate successful benchmark results.
+
+If an algorithm is incomplete, disclose it.
+
+## 10. Code structure
+
+Use a modular project layout separating:
+
+- Frontend components
+- Backend API
+- Sensor simulator
+- Camera geometry
+- IMU simulation
+- State estimator
+- Baseline estimators
+- GOI implementation
+- Keyframe selection
+- Recovery state machine
+- Benchmarking
+- Evaluation metrics
+- Tests
+
+Keep the numerical implementation independent of frontend visualization.
+
+Provide API endpoints for:
+- Starting an experiment
+- Updating degradation parameters
+- Retrieving estimated trajectories
+- Retrieving sensor diagnostics
+- Retrieving GOI diagnostics
+- Retrieving benchmark results
+- Exporting experiment data
+
+## 11. Documentation
+
+Create a serious README.
+
+Include:
+- Problem definition
+- Mathematical formulation
+- Sensor model
+- State representation
+- ESKF equations
+- GOI formulation
+- Adaptive fusion methodology
+- Keyframe selection methodology
+- Recovery state machine
+- Evaluation methodology
+- Known limitations
+- Installation instructions
+- Reproduction instructions
+
+Provide a clear distinction between the synthetic simulator and future real headset integration.
+
+## 12. Delivery priorities
+
+Work in this order:
+
+Phase 1:
+Functional simulator and ground-truth trajectory.
+
+Phase 2:
+Working IMU-only, vision-only and fixed-weight VIO baselines.
+
+Phase 3:
+Adaptive ESKF implementation.
+
+Phase 4:
+GOI and observability diagnostics.
+
+Phase 5:
+Keyframe selection and recovery logic.
+
+Phase 6:
+Interactive 3D visualization, benchmarking and exports.
+
+Phase 7:
+Tests, documentation and final polishing.
+
+Do not spend all the time polishing the frontend before the numerical estimator works.
+
+Do not claim state-of-the-art performance or invent percentage improvements.
+
+The final application must allow a user to select a sensor degradation scenario, run the estimators, compare trajectories, inspect GOI, and see quantitative results.
+
+**First deliver a working end-to-end vertical slice. Then complete the remaining modules without replacing working algorithms with mock implementations.**
