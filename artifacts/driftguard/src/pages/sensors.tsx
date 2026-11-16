@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { Camera, GitBranch, Play, RotateCcw, Shuffle, Undo2 } from 'lucide-react';
 import { useGetPresets, type ExperimentInput, type ExperimentInputMotion, type ExperimentInputRigDegradation, type Preset } from '@workspace/api-client-react';
 import { useExperimentCtx, DEFAULT_INPUT } from '@/lib/experiment-context';
-import { PARAM_SPEC, CAMERA_IDS, CAMERA_META, RIG_WINDOWS, cameraColor, fmt, type CameraId } from '@/lib/format';
+import { PARAM_SPEC, CAMERA_IDS, CAMERA_META, RIG_WINDOWS, cameraColor, fmt, hasMixo, type CameraId } from '@/lib/format';
 import { CameraWindowStrip } from '@/components/mixo-kit';
 import { Panel, ErrorPanel, RunningPanel } from '@/components/instrument';
 import { Slider } from '@/components/ui/slider';
@@ -219,12 +219,12 @@ export default function SensorsPage() {
     ...(nCamOver > 0 ? { cameraParameters: cleanCamParams(camParams) } : {}),
   });
 
-  const submit = (kind: 'new' | 'derive') => {
-    if (!valid) return;
+  const submit = (kind: 'new' | 'derive', destination = '/') => {
+    if (!valid || !preset || (c.experiment && initFor.current !== c.experiment.id)) return;
     const i = input();
     if (kind === 'new') c.run(i);
     else c.derive(i);
-    navigate('/');
+    navigate(destination);
   };
 
   if (c.running) return <RunningPanel input={c.runInput} kind={c.running} />;
@@ -261,6 +261,29 @@ export default function SensorsPage() {
       </div>
 
       <div className="bg-background flex flex-col min-h-0 lg:overflow-y-auto">
+        <div className="px-3 py-3 border-b border-border bg-card flex flex-wrap items-center gap-3" data-testid="status-sensor-mixo">
+          <div className="flex-1 min-w-[200px]">
+            <div className="text-[12px] font-medium">MIXO experts · four cameras + IMU</div>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              {c.experiment && !hasMixo(c.experiment)
+                ? 'This saved run predates MIXO and has no expert results. Generate a new run with the settings below; the original stays in history.'
+                : 'Every new run computes MIXO expert weights and camera diagnostics using the settings below.'}
+            </p>
+          </div>
+          {c.experiment && hasMixo(c.experiment) && (
+            <Link href="/experts" className="text-[12px] text-primary underline underline-offset-4" data-testid="link-sensor-mixo-results">
+              View current expert results
+            </Link>
+          )}
+          <button
+            onClick={() => submit('new', '/experts')}
+            disabled={!valid || !preset || !!(c.experiment && initFor.current !== c.experiment.id)}
+            className="h-8 px-3 bg-primary text-primary-foreground text-[12px] font-medium inline-flex items-center gap-2 disabled:opacity-40"
+            data-testid="button-run-mixo"
+          >
+            <Play className="w-3.5 h-3.5" /> Run with MIXO experts
+          </button>
+        </div>
         <Panel title="Run configuration" meta="front/IMU degradation over 30–70% of duration · rig cameras per window below" className="border-0">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-3">
             <div>
@@ -424,7 +447,7 @@ export default function SensorsPage() {
             </button>
             <button
               onClick={() => submit('derive')}
-              disabled={!valid || !c.selectedId}
+              disabled={!valid || !preset || !c.selectedId}
               title="PATCH: creates a new run derived from the current one; the original run remains in history"
               className="h-8 px-3 border border-accent/60 text-accent text-[12px] inline-flex items-center gap-2 hover:bg-accent/10 disabled:opacity-40"
               data-testid="button-derive-run"
@@ -433,7 +456,7 @@ export default function SensorsPage() {
             </button>
             <button
               onClick={() => submit('new')}
-              disabled={!valid}
+              disabled={!valid || !preset}
               className="h-8 px-4 bg-primary text-primary-foreground text-[12px] font-medium inline-flex items-center gap-2 hover:brightness-110 disabled:opacity-40"
               data-testid="button-run-experiment"
             >

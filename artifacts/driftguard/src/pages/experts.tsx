@@ -115,6 +115,7 @@ function ModelEvidence({ m, label, loading, error, onRetry }: { m: ModelReport |
 }
 
 function NoMixo({ experiment }: { experiment: Experiment }) {
+  const c = useExperimentCtx();
   const model = useGetMixoModel({ query: { queryKey: getGetMixoModelQueryKey(), staleTime: 60000 } });
   return (
     <div className="flex-1 overflow-auto grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_420px] gap-px bg-border">
@@ -124,11 +125,21 @@ function NoMixo({ experiment }: { experiment: Experiment }) {
           <h2 className="font-cond text-xl font-semibold mt-1">This experiment has no MIXO-inspired estimate</h2>
           <p className="mt-2 text-[13px] text-muted-foreground leading-relaxed">
             It was computed before the four-camera expert estimator existed, or the backend did not report it. Per-frame weights, camera previews and
-            gate diagnostics cannot be reconstructed after the fact, so none are shown. Re-run the same configuration to produce them.
+            gate diagnostics require a new computation, so none are shown for this saved run. Re-run the same configuration below;
+            the original experiment stays in history.
           </p>
-          <Link href="/sensors" className="mt-4 inline-flex items-center gap-2 h-8 px-3 bg-primary text-primary-foreground text-[12px] font-medium" data-testid="link-run-mixo">
-            Open Sensor Laboratory <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+          <div className="mt-4 flex flex-wrap gap-3 items-center">
+            <button
+              onClick={() => c.derive(experiment.config)}
+              className="inline-flex items-center gap-2 h-8 px-3 bg-primary text-primary-foreground text-[12px] font-medium"
+              data-testid="button-rerun-mixo"
+            >
+              Re-run with MIXO experts <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+            <Link href="/sensors" className="text-[12px] text-primary underline underline-offset-4" data-testid="link-run-mixo">
+              Edit settings in Sensor Laboratory
+            </Link>
+          </div>
         </div>
       </div>
       <Panel title="Gate model · current artifact" meta="GET /api/mixo/model" className="border-0">
